@@ -39,13 +39,15 @@ func (b *bucket) set(key string, value interface{}, duration time.Duration) (*It
 	return item, existing
 }
 
-func (b *bucket) delete(key string) *Item {
+func (b *bucket) delete(key string) (*Item, bool) {
 	b.Lock()
 	defer b.Unlock()
-	item := b.lookup[key]
-	heap.Remove(b.pq, item.idx)
-	delete(b.lookup, key)
-	return item
+	item, ok := b.lookup[key]
+	if ok {
+		heap.Remove(b.pq, item.idx)
+		delete(b.lookup, key)
+	}
+	return item, ok
 }
 
 func (b *bucket) clear() {
