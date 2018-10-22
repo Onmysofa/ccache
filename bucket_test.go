@@ -49,7 +49,7 @@ func (_ *BucketTests) SetsAnExistingItem() {
 }
 
 func testBucket() *bucket {
-	b := &bucket{lookup: make(map[string]*Item)}
+	b := &bucket{lookup: make(map[string]*Item), pq: NewPQ()}
 	b.lookup["power"] = &Item{
 		key:   "power",
 		value: TestValue("9000"),

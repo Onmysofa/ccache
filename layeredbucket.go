@@ -32,7 +32,7 @@ func (b *layeredBucket) set(primary, secondary string, value interface{}, durati
 	b.Lock()
 	bkt, exists := b.buckets[primary]
 	if exists == false {
-		bkt = &bucket{lookup: make(map[string]*Item)}
+		bkt = &bucket{lookup: make(map[string]*Item), pq: NewPQ()}
 		b.buckets[primary] = bkt
 	}
 	b.Unlock()

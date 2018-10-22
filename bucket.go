@@ -1,6 +1,7 @@
 package ccache
 
 import (
+	"container/heap"
 	"sync"
 	"time"
 )
@@ -8,12 +9,20 @@ import (
 type bucket struct {
 	sync.RWMutex
 	lookup map[string]*Item
+	pq *PriorityQueue
 }
 
 func (b *bucket) get(key string) *Item {
 	b.RLock()
 	defer b.RUnlock()
-	return b.lookup[key]
+	item, ok := b.lookup[key]
+	if ok {
+		heap.Remove(b.pq, item.idx)
+		item.accCount++
+		heap.Push(b.pq, item)
+	}
+
+	return item
 }
 
 func (b *bucket) set(key string, value interface{}, duration time.Duration) (*Item, *Item) {
@@ -21,8 +30,12 @@ func (b *bucket) set(key string, value interface{}, duration time.Duration) (*It
 	item := newItem(key, value, expires)
 	b.Lock()
 	defer b.Unlock()
-	existing := b.lookup[key]
+	existing, ok := b.lookup[key]
+	if ok {
+		heap.Remove(b.pq, existing.idx)
+	}
 	b.lookup[key] = item
+	heap.Push(b.pq, item)
 	return item, existing
 }
 
@@ -39,3 +52,5 @@ func (b *bucket) clear() {
 	defer b.Unlock()
 	b.lookup = make(map[string]*Item)
 }
+
+

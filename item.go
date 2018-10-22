@@ -42,10 +42,12 @@ func (i *nilItem) Extend(duration time.Duration) {
 var NilTracked = new(nilItem)
 
 type Item struct {
+	idx		   int
 	key        string
 	group      string
 	promotions int32
 	refCount   int32
+	accCount   int32
 	expires    int64
 	size       int64
 	value      interface{}

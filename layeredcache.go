@@ -72,7 +72,7 @@ func (c *LayeredCache) GetOrCreateSecondaryCache(primary string) *SecondaryCache
 	bkt := primaryBkt.getSecondaryBucket(primary)
 	primaryBkt.Lock()
 	if bkt == nil {
-		bkt = &bucket{lookup: make(map[string]*Item)}
+		bkt = &bucket{lookup: make(map[string]*Item), pq: NewPQ()}
 		primaryBkt.buckets[primary] = bkt
 	}
 	primaryBkt.Unlock()
