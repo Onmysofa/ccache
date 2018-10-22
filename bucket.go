@@ -43,6 +43,7 @@ func (b *bucket) delete(key string) *Item {
 	b.Lock()
 	defer b.Unlock()
 	item := b.lookup[key]
+	heap.Remove(b.pq, item.idx)
 	delete(b.lookup, key)
 	return item
 }
@@ -51,6 +52,7 @@ func (b *bucket) clear() {
 	b.Lock()
 	defer b.Unlock()
 	b.lookup = make(map[string]*Item)
+	b.pq = NewPQ()
 }
 
 
