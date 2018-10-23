@@ -17,13 +17,9 @@ func (c *Cache) GetPage(reqs []*Request) error {
 	for _, req := range reqs {
 		key := buildKey(req.Backend, req.Uri)
 
-		item := c.bucket(key).get(key)
+		item := c.Get(key)
 		if item == nil {
 			continue
-		}
-
-		if item.expires > time.Now().UnixNano() {
-			c.promote(item)
 		}
 
 		req.obj = item.value
@@ -37,6 +33,6 @@ func (c *Cache) SetPage(reqs []*Request, duration time.Duration) {
 	for _, req := range reqs {
 		key := buildKey(req.Backend, req.Uri)
 		value := req.obj
-		c.set(key, value, duration)
+		c.Set(key, value, duration)
 	}
 }
