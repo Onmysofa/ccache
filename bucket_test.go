@@ -1,6 +1,7 @@
 package ccache
 
 import (
+	"container/heap"
 	. "github.com/karlseguin/expect"
 	"testing"
 	"time"
@@ -9,7 +10,7 @@ import (
 type BucketTests struct {
 }
 
-func Tests_Bucket(t *testing.T) {
+func Test_Bucket(t *testing.T) {
 	Expectify(new(BucketTests), t)
 }
 
@@ -22,6 +23,21 @@ func (_ *BucketTests) GetHitFromBucket() {
 	bucket := testBucket()
 	item := bucket.get("power")
 	assertValue(item, "9000")
+}
+
+func (_ *BucketTests) TestPQ() {
+	bucket := testBucket()
+	i1, i2 := bucket.set("what", TestValue("ok"), time.Minute)
+	assertValue(i1, "ok")
+	Expect(i2).To.Equal(nil)
+	i1, i2 = bucket.set("how", TestValue("alright"), time.Minute)
+	assertValue(i1, "alright")
+	Expect(i2).To.Equal(nil)
+	item := bucket.get("what")
+	assertValue(item, "ok")
+	item = bucket.get("how")
+	assertValue(item, "alright")
+	assertValue(bucket.pq.Peek(), "9000")
 }
 
 func (_ *BucketTests) DeleteItemFromBucket() {
@@ -42,9 +58,10 @@ func (_ *BucketTests) SetsANewBucketItem() {
 func (_ *BucketTests) SetsAnExistingItem() {
 	bucket := testBucket()
 	item, existing := bucket.set("power", TestValue("9001"), time.Minute)
-	assertValue(item, "9002")
+	assertValue(existing, "9000")
 	item = bucket.get("power")
-	assertValue(item, "9002")
+	assertValue(item, "9001")
+	item, existing = bucket.set("power", TestValue("9002"), time.Minute)
 	assertValue(existing, "9001")
 }
 
@@ -54,6 +71,7 @@ func testBucket() *bucket {
 		key:   "power",
 		value: TestValue("9000"),
 	}
+	heap.Push(b.pq, b.lookup["power"])
 	return b
 }
 
