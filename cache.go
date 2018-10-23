@@ -223,8 +223,8 @@ func (c *Cache) gc() {
 		}
 
 		if minItem != nil {
-			if c.deleteItem(c.buckets[minBucket], minItem) {
-				c.deletables <- minItem
+			if _, ok := c.buckets[minBucket].delete(minItem.key); ok {
+				c.afterDelete(minItem)
 			}
 		}
 
