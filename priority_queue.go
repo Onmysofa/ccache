@@ -41,3 +41,10 @@ func (pq PriorityQueue) Swap(i, j int) {
 	pq[i].idx = i
 	pq[j].idx = j
 }
+
+func (pq PriorityQueue) Peek() *Item {
+	if (pq.Len() > 0) {
+		return pq[0]
+	}
+	return nil
+}

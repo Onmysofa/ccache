@@ -1,7 +1,6 @@
 package ccache
 
 import (
-	"container/list"
 	"sync/atomic"
 	"time"
 )
@@ -51,7 +50,6 @@ type Item struct {
 	expires    int64
 	size       int64
 	value      interface{}
-	element    *list.Element
 }
 
 func newItem(key string, value interface{}, expires int64) *Item {

@@ -42,6 +42,11 @@ func (b *bucket) set(key string, value interface{}, duration time.Duration) (*It
 func (b *bucket) delete(key string) (*Item, bool) {
 	b.Lock()
 	defer b.Unlock()
+	return b.deleteInner(key)
+}
+
+func (b *bucket) deleteInner(key string) (*Item, bool) {
+
 	item, ok := b.lookup[key]
 	if ok {
 		heap.Remove(b.pq, item.idx)
@@ -50,11 +55,17 @@ func (b *bucket) delete(key string) (*Item, bool) {
 	return item, ok
 }
 
+func (b *bucket) getCandidate() *Item {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.pq.Peek()
+}
+
 func (b *bucket) clear() {
 	b.Lock()
 	defer b.Unlock()
 	b.lookup = make(map[string]*Item)
 	b.pq = NewPQ()
 }
-
 

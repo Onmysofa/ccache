@@ -1,16 +1,15 @@
 // An LRU cached aimed at high concurrency
 package ccache
 
+import "C"
 import (
-	"container/list"
 	"hash/fnv"
-	"sync/atomic"
+	"math/rand"
 	"time"
 )
 
 type Cache struct {
 	*Configuration
-	list        *list.List
 	size        int64
 	buckets     []*bucket
 	bucketMask  uint32
@@ -23,7 +22,6 @@ type Cache struct {
 // See ccache.Configure() for creating a configuration
 func New(config *Configuration) *Cache {
 	c := &Cache{
-		list:          list.New(),
 		Configuration: config,
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*bucket, config.buckets),
@@ -47,9 +45,7 @@ func (c *Cache) Get(key string) *Item {
 	if item == nil {
 		return nil
 	}
-	if item.expires > time.Now().UnixNano() {
-		c.promote(item)
-	}
+
 	return item
 }
 
@@ -98,7 +94,7 @@ func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interfac
 
 // Remove the item from the cache, return true if the item was present, false otherwise.
 func (c *Cache) Delete(key string) bool {
-	item := c.bucket(key).delete(key)
+	item, _ := c.bucket(key).delete(key)
 	if item != nil {
 		c.deletables <- item
 		return true
@@ -112,7 +108,6 @@ func (c *Cache) Clear() {
 		bucket.clear()
 	}
 	c.size = 0
-	c.list = list.New()
 }
 
 // Stops the background worker. Operations performed on the cache after Stop
@@ -129,9 +124,12 @@ func (c *Cache) restart() {
 	go c.worker()
 }
 
-func (c *Cache) deleteItem(bucket *bucket, item *Item) {
-	bucket.delete(item.key) //stop other GETs from getting it
-	c.deletables <- item
+func (c *Cache) deleteItem(bucket *bucket, item *Item) bool {
+	_, ok := bucket.delete(item.key) //stop other GETs from getting it
+	if ok {
+		c.deletables <- item
+	}
+	return ok
 }
 
 func (c *Cache) set(key string, value interface{}, duration time.Duration) *Item {
@@ -162,11 +160,13 @@ func (c *Cache) worker() {
 			if ok == false {
 				goto drain
 			}
-			if c.doPromote(item) && c.size > c.maxSize {
+
+			c.atInsert(item)
+			if c.size > c.maxSize {
 				c.gc()
 			}
 		case item := <-c.deletables:
-			c.doDelete(item)
+			c.afterDelete(item)
 		}
 	}
 
@@ -174,7 +174,7 @@ drain:
 	for {
 		select {
 		case item := <-c.deletables:
-			c.doDelete(item)
+			c.afterDelete(item)
 		default:
 			close(c.deletables)
 			return
@@ -182,50 +182,52 @@ drain:
 	}
 }
 
-func (c *Cache) doDelete(item *Item) {
-	if item.element == nil {
-		item.promotions = -2
-	} else {
-		c.size -= item.size
-		if c.onDelete != nil {
-			c.onDelete(item)
-		}
-		c.list.Remove(item.element)
+func (c *Cache) afterDelete(item *Item) {
+	c.size -= item.size
+	if c.onDelete != nil {
+		c.onDelete(item)
 	}
 }
 
-func (c *Cache) doPromote(item *Item) bool {
-	//already deleted
-	if item.promotions == -2 {
-		return false
-	}
-	if item.element != nil { //not a new item
-		if item.shouldPromote(c.getsPerPromote) {
-			c.list.MoveToFront(item.element)
-			item.promotions = 0
-		}
-		return false
-	}
-
+func (c *Cache) atInsert(item *Item) {
 	c.size += item.size
-	item.element = c.list.PushFront(item)
-	return true
 }
 
 func (c *Cache) gc() {
-	element := c.list.Back()
-	for i := 0; i < c.itemsToPrune; i++ {
-		if element == nil {
-			return
+	i := 0
+	for c.size > c.maxSize || i < c.itemsToPrune {
+
+
+		var minBucket int
+		var minItem *Item
+		var minVal int32
+
+		for j := 0; j < c.candidates; j++ {
+			bucket := rand.Intn(c.Configuration.buckets)
+			curItem := c.buckets[bucket].getCandidate()
+
+			if (curItem != nil) {
+				if (minItem == nil) {
+					minItem = curItem
+					minVal = eval(minItem)
+					minBucket = bucket
+				} else {
+					curVal := eval(curItem)
+					if (curVal < minVal) {
+						minItem = curItem
+						minVal = curVal
+						minBucket = bucket
+					}
+				}
+			}
 		}
-		prev := element.Prev()
-		item := element.Value.(*Item)
-		if c.tracking == false || atomic.LoadInt32(&item.refCount) == 0 {
-			c.bucket(item.key).delete(item.key)
-			c.size -= item.size
-			c.list.Remove(element)
-			item.promotions = -2
+
+		if minItem != nil {
+			if c.deleteItem(c.buckets[minBucket], minItem) {
+				c.deletables <- minItem
+			}
 		}
-		element = prev
+
+		i++
 	}
 }

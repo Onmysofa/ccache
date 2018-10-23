@@ -3,6 +3,7 @@ package ccache
 type Configuration struct {
 	maxSize        int64
 	buckets        int
+	candidates     int
 	itemsToPrune   int
 	deleteBuffer   int
 	promoteBuffer  int
@@ -17,6 +18,7 @@ type Configuration struct {
 func Configure() *Configuration {
 	return &Configuration{
 		buckets:        16,
+		candidates:     3,
 		itemsToPrune:   500,
 		deleteBuffer:   1024,
 		getsPerPromote: 3,
@@ -41,6 +43,13 @@ func (c *Configuration) Buckets(count uint32) *Configuration {
 		count = 16
 	}
 	c.buckets = int(count)
+	return c
+}
+
+func (c *Configuration) Candidates(count int) *Configuration {
+	if count >= 0 && count <= c.buckets {
+		c.candidates = count
+	}
 	return c
 }
 
