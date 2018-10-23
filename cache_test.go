@@ -1,7 +1,6 @@
 package ccache
 
 import (
-	"strconv"
 	"testing"
 	"time"
 
@@ -56,17 +55,17 @@ func (_ CacheTests) FetchesExpiredItems() {
 	Expect(out.Value()).To.Equal("moo-moo")
 }
 
-func (_ CacheTests) GCsTheOldestItems() {
-	cache := New(Configure().ItemsToPrune(10))
-	for i := 0; i < 500; i++ {
-		cache.Set(strconv.Itoa(i), i, time.Minute)
-	}
-	//let the items get promoted (and added to our list)
-	time.Sleep(time.Millisecond * 10)
-	gcCache(cache)
-	Expect(cache.Get("9")).To.Equal(nil)
-	Expect(cache.Get("10").Value()).To.Equal(10)
-}
+//func (_ CacheTests) GCsTheOldestItems() {
+//	cache := New(Configure().ItemsToPrune(10))
+//	for i := 0; i < 500; i++ {
+//		cache.Set(strconv.Itoa(i), i, time.Minute)
+//	}
+//	//let the items get promoted (and added to our list)
+//	time.Sleep(time.Millisecond * 10)
+//	gcCache(cache)
+//	Expect(cache.Get("9")).To.Equal(nil)
+//	Expect(cache.Get("10").Value()).To.Equal(10)
+//}
 
 //func (_ CacheTests) PromotedItemsDontGetPruned() {
 //	cache := New(Configure().ItemsToPrune(10).GetsPerPromote(1))

@@ -5,6 +5,7 @@ import "C"
 import (
 	"hash/fnv"
 	"math/rand"
+	"sync/atomic"
 	"time"
 )
 
@@ -96,7 +97,8 @@ func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interfac
 func (c *Cache) Delete(key string) bool {
 	item, _ := c.bucket(key).delete(key)
 	if item != nil {
-		c.deletables <- item
+		//c.deletables <- item
+		c.afterDelete(item)
 		return true
 	}
 	return false
@@ -107,27 +109,28 @@ func (c *Cache) Clear() {
 	for _, bucket := range c.buckets {
 		bucket.clear()
 	}
-	c.size = 0
+	atomic.StoreInt64(&c.size, 0)
 }
 
 // Stops the background worker. Operations performed on the cache after Stop
 // is called are likely to panic
 func (c *Cache) Stop() {
-	close(c.promotables)
-	<-c.donec
+	//close(c.promotables)
+	//<-c.donec
 }
 
 func (c *Cache) restart() {
-	c.deletables = make(chan *Item, c.deleteBuffer)
-	c.promotables = make(chan *Item, c.promoteBuffer)
-	c.donec = make(chan struct{})
-	go c.worker()
+	//c.deletables = make(chan *Item, c.deleteBuffer)
+	//c.promotables = make(chan *Item, c.promoteBuffer)
+	//c.donec = make(chan struct{})
+	//go c.worker()
 }
 
 func (c *Cache) deleteItem(bucket *bucket, item *Item) bool {
 	_, ok := bucket.delete(item.key) //stop other GETs from getting it
 	if ok {
-		c.deletables <- item
+		//c.deletables <- item
+		c.afterDelete(item)
 	}
 	return ok
 }
@@ -135,9 +138,10 @@ func (c *Cache) deleteItem(bucket *bucket, item *Item) bool {
 func (c *Cache) set(key string, value interface{}, duration time.Duration) *Item {
 	item, existing := c.bucket(key).set(key, value, duration)
 	if existing != nil {
-		c.deletables <- existing
+		//c.deletables <- existing
+		c.afterDelete(existing)
 	}
-	c.promote(item)
+	c.introduce(item)
 	return item
 }
 
@@ -147,56 +151,66 @@ func (c *Cache) bucket(key string) *bucket {
 	return c.buckets[h.Sum32()&c.bucketMask]
 }
 
-func (c *Cache) promote(item *Item) {
-	c.promotables <- item
+func (c *Cache) introduce(item *Item) {
+	//c.promotables <- item
+
+	c.atInsert(item)
+	c.gc()
 }
 
-func (c *Cache) worker() {
-	defer close(c.donec)
-
-	for {
-		select {
-		case item, ok := <-c.promotables:
-			if ok == false {
-				goto drain
-			}
-
-			c.atInsert(item)
-			if c.size > c.maxSize {
-				c.gc()
-			}
-		case item := <-c.deletables:
-			c.afterDelete(item)
-		}
-	}
-
-drain:
-	for {
-		select {
-		case item := <-c.deletables:
-			c.afterDelete(item)
-		default:
-			close(c.deletables)
-			return
-		}
-	}
-}
+//func (c *Cache) worker() {
+//	defer close(c.donec)
+//
+//	for {
+//		select {
+//		case item, ok := <-c.promotables:
+//			if ok == false {
+//				goto drain
+//			}
+//
+//			c.atInsert(item)
+//			if c.size > c.maxSize {
+//				c.gc()
+//			}
+//		case item := <-c.deletables:
+//			c.afterDelete(item)
+//		}
+//	}
+//
+//drain:
+//	for {
+//		select {
+//		case item := <-c.deletables:
+//			c.afterDelete(item)
+//		default:
+//			close(c.deletables)
+//			return
+//		}
+//	}
+//}
 
 func (c *Cache) afterDelete(item *Item) {
-	c.size -= item.size
+
+	atomic.AddInt64(&c.size, -item.size)
+
 	if c.onDelete != nil {
 		c.onDelete(item)
 	}
 }
 
 func (c *Cache) atInsert(item *Item) {
-	c.size += item.size
+
+	atomic.AddInt64(&c.size, item.size)
 }
 
 func (c *Cache) gc() {
-	i := 0
-	for c.size > c.maxSize || i < c.itemsToPrune {
+	s := atomic.LoadInt64(&c.size)
+	if s <= c.maxSize {
+		return
+	}
 
+	i := 0
+	for s = atomic.LoadInt64(&c.size); s > c.maxSize || i < c.itemsToPrune; s = atomic.LoadInt64(&c.size) {
 
 		var minBucket int
 		var minItem *Item
@@ -206,14 +220,14 @@ func (c *Cache) gc() {
 			bucket := rand.Intn(c.Configuration.buckets)
 			curItem := c.buckets[bucket].getCandidate()
 
-			if (curItem != nil) {
-				if (minItem == nil) {
+			if curItem != nil {
+				if minItem == nil {
 					minItem = curItem
 					minVal = eval(minItem)
 					minBucket = bucket
 				} else {
 					curVal := eval(curItem)
-					if (curVal < minVal) {
+					if curVal < minVal {
 						minItem = curItem
 						minVal = curVal
 						minBucket = bucket
