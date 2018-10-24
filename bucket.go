@@ -45,11 +45,18 @@ func (b *bucket) set(key string, value interface{}, duration time.Duration) (*It
 	defer b.Unlock()
 
 	b.arr = append(b.arr, item)
-	existingId := b.lookup[key]
-	existing := b.arr[existingId]
-	b.arr[existingId] = item
-	item.idx = existingId
-	return item, existing
+	existingId, ok := b.lookup[key]
+	if ok {
+		existing := b.arr[existingId]
+		b.arr[existingId] = item
+		item.idx = existingId
+		return item, existing
+	} else {
+		b.arr = append(b.arr, item)
+		item.idx = len(b.arr) - 1
+		b.lookup[key] = item.idx
+		return item, nil
+	}
 }
 
 func (b *bucket) delete(key string) (*Item, bool) {
