@@ -55,11 +55,11 @@ func (b *bucket) deleteInner(key string) (*Item, bool) {
 	return item, ok
 }
 
-func (b *bucket) getCandidate() *Item {
+func (b *bucket) getCandidate() (*Item, int32) {
 	b.RLock()
 	defer b.RUnlock()
 
-	return b.pq.Peek()
+	return b.pq.Peek(), eval(b.pq.Peek())
 }
 
 func (b *bucket) clear() {

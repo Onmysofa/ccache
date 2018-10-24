@@ -218,15 +218,14 @@ func (c *Cache) gc() {
 
 		for j := 0; j < c.candidates; j++ {
 			bucket := rand.Intn(c.Configuration.buckets)
-			curItem := c.buckets[bucket].getCandidate()
+			curItem, curVal := c.buckets[bucket].getCandidate()
 
 			if curItem != nil {
 				if minItem == nil {
 					minItem = curItem
-					minVal = eval(minItem)
+					minVal = curVal
 					minBucket = bucket
 				} else {
-					curVal := eval(curItem)
 					if curVal < minVal {
 						minItem = curItem
 						minVal = curVal
