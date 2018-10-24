@@ -206,6 +206,14 @@ func (c *Cache) gc() {
 		return
 	}
 
+	preSums := make([]int, c.Configuration.buckets, c.Configuration.buckets)
+	sum := 0;
+
+	for k := 0; k < c.Configuration.buckets; k++ {
+		preSums[k] = sum + c.buckets[k].getNum()
+		sum = preSums[k]
+	}
+
 	i := 0
 	for s = atomic.LoadInt64(&c.size); s > c.maxSize || i < c.itemsToPrune; s = atomic.LoadInt64(&c.size) {
 
@@ -214,14 +222,6 @@ func (c *Cache) gc() {
 		var minVal int32
 
 		for j := 0; j < c.candidates; j++ {
-
-			preSums := make([]int, c.Configuration.buckets, c.Configuration.buckets)
-			sum := 0;
-
-			for k := 0; k < c.Configuration.buckets; k++ {
-				preSums[k] = sum + c.buckets[k].getNum()
-				sum = preSums[k]
-			}
 
 			r := rand.Intn(preSums[c.Configuration.buckets - 1]) + 1
 			left := 0;
