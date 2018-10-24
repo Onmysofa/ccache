@@ -28,10 +28,7 @@ func New(config *Configuration) *Cache {
 		buckets:       make([]*bucket, config.buckets),
 	}
 	for i := 0; i < int(config.buckets); i++ {
-		c.buckets[i] = &bucket{
-			lookup: make(map[string]*Item),
-			pq: NewPQ(),
-		}
+		c.buckets[i] = NewBucket(config.initBucketSize)
 	}
 	c.restart()
 	return c

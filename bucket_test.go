@@ -1,7 +1,6 @@
 package ccache
 
 import (
-	"container/heap"
 	. "github.com/karlseguin/expect"
 	"testing"
 	"time"
@@ -23,21 +22,6 @@ func (_ *BucketTests) GetHitFromBucket() {
 	bucket := testBucket()
 	item := bucket.get("power")
 	assertValue(item, "9000")
-}
-
-func (_ *BucketTests) TestPQ() {
-	bucket := testBucket()
-	i1, i2 := bucket.set("what", TestValue("ok"), time.Minute)
-	assertValue(i1, "ok")
-	Expect(i2).To.Equal(nil)
-	i1, i2 = bucket.set("how", TestValue("alright"), time.Minute)
-	assertValue(i1, "alright")
-	Expect(i2).To.Equal(nil)
-	item := bucket.get("what")
-	assertValue(item, "ok")
-	item = bucket.get("how")
-	assertValue(item, "alright")
-	assertValue(bucket.pq.Peek(), "9000")
 }
 
 func (_ *BucketTests) DeleteItemFromBucket() {
@@ -66,12 +50,14 @@ func (_ *BucketTests) SetsAnExistingItem() {
 }
 
 func testBucket() *bucket {
-	b := &bucket{lookup: make(map[string]*Item), pq: NewPQ()}
-	b.lookup["power"] = &Item{
+	b := &bucket{lookup: make(map[string]int), arr: NewArr(10)}
+	b.lookup["power"] = 0
+	item := &Item{
+		idx: 0,
 		key:   "power",
 		value: TestValue("9000"),
 	}
-	heap.Push(b.pq, b.lookup["power"])
+	b.arr = append(b.arr, item)
 	return b
 }
 

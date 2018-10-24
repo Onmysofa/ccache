@@ -1,28 +1,40 @@
 package ccache
 
 import (
-	"container/heap"
 	"sync"
 	"time"
 )
 
 type bucket struct {
 	sync.RWMutex
-	lookup map[string]*Item
-	pq *PriorityQueue
+	lookup map[string]int
+	arr []*Item
+	init int
+}
+
+func NewArr(initSize int) []*Item {
+	return make([]*Item, 0, initSize)
+}
+
+func NewBucket(initSize int) *bucket {
+	return &bucket{
+		lookup: make(map[string]int),
+		arr: NewArr(initSize),
+		init: initSize,
+	}
 }
 
 func (b *bucket) get(key string) *Item {
 	b.RLock()
 	defer b.RUnlock()
-	item, ok := b.lookup[key]
+	itemId, ok := b.lookup[key]
 	if ok {
-		heap.Remove(b.pq, item.idx)
+		item := b.arr[itemId]
 		item.accCount++
-		heap.Push(b.pq, item)
+		return item
 	}
 
-	return item
+	return nil
 }
 
 func (b *bucket) set(key string, value interface{}, duration time.Duration) (*Item, *Item) {
@@ -30,12 +42,12 @@ func (b *bucket) set(key string, value interface{}, duration time.Duration) (*It
 	item := newItem(key, value, expires)
 	b.Lock()
 	defer b.Unlock()
-	existing, ok := b.lookup[key]
-	if ok {
-		heap.Remove(b.pq, existing.idx)
-	}
-	b.lookup[key] = item
-	heap.Push(b.pq, item)
+
+	b.arr = append(b.arr, item)
+	existingId := b.lookup[key]
+	existing := b.arr[existingId]
+	b.arr[existingId] = item
+	item.idx = existingId
 	return item, existing
 }
 
@@ -47,25 +59,41 @@ func (b *bucket) delete(key string) (*Item, bool) {
 
 func (b *bucket) deleteInner(key string) (*Item, bool) {
 
-	item, ok := b.lookup[key]
+	itemId, ok := b.lookup[key]
 	if ok {
-		heap.Remove(b.pq, item.idx)
+		last := b.arr[len(b.arr) - 1]
+		item :=b.arr[itemId]
+		last.idx, item.idx = item.idx, last.idx
+		b.arr[last.idx] = last
+		b.arr[item.idx] = item
+		b.lookup[last.key] = last.idx
+
+		b.arr = b.arr[:len(b.arr)-1]
 		delete(b.lookup, key)
+
+		return item, true
 	}
-	return item, ok
+	return nil, false
+}
+
+func (b *bucket) getSize() int {
+	b.RLock()
+	defer b.RUnlock()
+
+	return len(b.arr)
 }
 
 func (b *bucket) getCandidate() (*Item, int32) {
 	b.RLock()
 	defer b.RUnlock()
 
-	return b.pq.Peek(), eval(b.pq.Peek())
+
 }
 
 func (b *bucket) clear() {
 	b.Lock()
 	defer b.Unlock()
-	b.lookup = make(map[string]*Item)
-	b.pq = NewPQ()
+	b.lookup = make(map[string]int)
+	b.arr = NewArr(b.init)
 }
 
