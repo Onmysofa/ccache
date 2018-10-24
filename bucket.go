@@ -1,6 +1,7 @@
 package ccache
 
 import (
+	"math/rand"
 	"sync"
 	"time"
 )
@@ -87,7 +88,9 @@ func (b *bucket) getCandidate() (*Item, int32) {
 	b.RLock()
 	defer b.RUnlock()
 
-
+	itemId := rand.Intn(len(b.arr))
+	item := b.arr[itemId]
+	return item, eval(item)
 }
 
 func (b *bucket) clear() {
