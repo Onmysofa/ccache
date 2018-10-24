@@ -152,7 +152,7 @@ func (c *Cache) introduce(item *Item) {
 	//c.promotables <- item
 
 	c.atInsert(item)
-	c.gc()
+	c.evict()
 }
 
 //func (c *Cache) worker() {
@@ -200,7 +200,7 @@ func (c *Cache) atInsert(item *Item) {
 	atomic.AddInt64(&c.size, item.size)
 }
 
-func (c *Cache) gc() {
+func (c *Cache) evict() {
 	s := atomic.LoadInt64(&c.size)
 	if s <= c.maxSize {
 		return
