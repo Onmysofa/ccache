@@ -214,7 +214,28 @@ func (c *Cache) gc() {
 		var minVal int32
 
 		for j := 0; j < c.candidates; j++ {
-			bucket := rand.Intn(c.Configuration.buckets)
+
+			preSums := make([]int, c.Configuration.buckets, c.Configuration.buckets)
+			sum := 0;
+
+			for k := 0; k < c.Configuration.buckets; k++ {
+				preSums[k] = sum + c.buckets[k].getNum()
+				sum = preSums[k]
+			}
+
+			r := rand.Intn(preSums[c.Configuration.buckets - 1]) + 1
+			left := 0;
+			right := c.Configuration.buckets - 1;
+			for left < right {
+				mid := (right - left) / 2 + left;
+				if preSums[mid] >= r {
+					right = mid;
+				} else {
+					left = mid + 1;
+				}
+			}
+
+			bucket := left
 			curItem, curVal := c.buckets[bucket].getCandidate()
 
 			if curItem != nil {
@@ -230,6 +251,7 @@ func (c *Cache) gc() {
 					}
 				}
 			}
+			// Possible nil result, purposely left there to avoid infinite loop
 		}
 
 		if minItem != nil {

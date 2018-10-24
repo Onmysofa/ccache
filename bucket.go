@@ -84,7 +84,7 @@ func (b *bucket) deleteInner(key string) (*Item, bool) {
 	return nil, false
 }
 
-func (b *bucket) getSize() int {
+func (b *bucket) getNum() int {
 	b.RLock()
 	defer b.RUnlock()
 
@@ -95,7 +95,11 @@ func (b *bucket) getCandidate() (*Item, int32) {
 	b.RLock()
 	defer b.RUnlock()
 
-	itemId := rand.Intn(len(b.arr))
+	l := len(b.arr)
+	if l == 0 {
+		return nil, 0
+	}
+	itemId := rand.Intn(l)
 	item := b.arr[itemId]
 	return item, eval(item)
 }
