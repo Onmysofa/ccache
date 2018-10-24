@@ -44,7 +44,6 @@ func (b *bucket) set(key string, value interface{}, duration time.Duration) (*It
 	b.Lock()
 	defer b.Unlock()
 
-	b.arr = append(b.arr, item)
 	existingId, ok := b.lookup[key]
 	if ok {
 		existing := b.arr[existingId]
@@ -70,7 +69,8 @@ func (b *bucket) deleteInner(key string) (*Item, bool) {
 	itemId, ok := b.lookup[key]
 	if ok {
 		last := b.arr[len(b.arr) - 1]
-		item :=b.arr[itemId]
+
+		item := b.arr[itemId]
 		last.idx, item.idx = item.idx, last.idx
 		b.arr[last.idx] = last
 		b.arr[item.idx] = item
