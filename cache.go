@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"sync/atomic"
 	"time"
+	"unsafe"
 )
 
 const EPSILON = 0.0000001
@@ -14,11 +15,17 @@ const EPSILON = 0.0000001
 type Cache struct {
 	*Configuration
 	size        int64
+	counter     uint64
 	buckets     []*bucket
 	bucketMask  uint32
 	deletables  chan *Item
 	promotables chan *Item
-	donec       chan struct{}
+	tables unsafe.Pointer
+}
+
+type samplingTables struct {
+	tableU []float64
+	tableK []int
 }
 
 // Create a new cache with the specified configuration
@@ -26,6 +33,7 @@ type Cache struct {
 func New(config *Configuration) *Cache {
 	c := &Cache{
 		Configuration: config,
+		counter: 0,
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*bucket, config.buckets),
 	}
@@ -62,6 +70,7 @@ func (c *Cache) TrackingGet(key string) TrackedItem {
 
 // Set the value in the cache for the specified duration
 func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
+	atomic.AddUint64(&c.counter, 1)
 	c.set(key, value, duration)
 }
 
@@ -94,6 +103,7 @@ func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interfac
 
 // Remove the item from the cache, return true if the item was present, false otherwise.
 func (c *Cache) Delete(key string) bool {
+	atomic.AddUint64(&c.counter, 1)
 	item, _ := c.bucket(key).delete(key)
 	if item != nil {
 		//c.deletables <- item
@@ -202,10 +212,10 @@ func (c *Cache) atInsert(item *Item) {
 	atomic.AddInt64(&c.size, item.size)
 }
 
-func (c *Cache) buildSamplingTables() (tableU []float64, tableK []int) {
+func (c *Cache) buildSamplingTables() *samplingTables {
 	n := c.Configuration.buckets
-	tableU = make([]float64, n, n)
-	tableK = make([]int, n, n)
+	tableU := make([]float64, n, n)
+	tableK := make([]int, n, n)
 
 	for i := range tableK {
 		tableK[i] = -1
@@ -251,7 +261,7 @@ func (c *Cache) buildSamplingTables() (tableU []float64, tableK []int) {
 		}
 	}
 
-	return tableU, tableK
+	return &samplingTables{tableU, tableK}
 }
 
 func (c *Cache) evict() {
@@ -260,7 +270,18 @@ func (c *Cache) evict() {
 		return
 	}
 
-	tableU, tableK := c.buildSamplingTables()
+	tables := atomic.LoadPointer(&c.tables)
+	if tables  == nil {
+		tables = unsafe.Pointer(c.buildSamplingTables())
+		atomic.CompareAndSwapPointer(&c.tables, nil, tables)
+	} else if atomic.LoadUint64(&c.counter) >= c.countPerSampling {
+		atomic.StoreUint64(&c.counter, 0)
+		tables = unsafe.Pointer(c.buildSamplingTables())
+		atomic.StorePointer(&c.tables, tables)
+	}
+
+	tableU := (*samplingTables)(tables).tableU
+	tableK := (*samplingTables)(tables).tableK
 
 	ii := 0
 	for s = atomic.LoadInt64(&c.size); s > c.maxSize || ii < c.itemsToPrune; s = atomic.LoadInt64(&c.size) {

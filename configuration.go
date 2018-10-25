@@ -7,6 +7,7 @@ type Configuration struct {
 	itemsToPrune   int
 	initBucketSize int
 	tracking       bool
+	countPerSampling uint64
 	onDelete       func(item *Item)
 }
 
@@ -20,6 +21,7 @@ func Configure() *Configuration {
 		itemsToPrune:   500,
 		initBucketSize: 512,
 		maxSize:        5000,
+		countPerSampling: 1000,
 		tracking:       false,
 	}
 }
@@ -83,6 +85,15 @@ func (c *Configuration) InitBucketSize(size uint32) *Configuration {
 // counter.
 func (c *Configuration) Track() *Configuration {
 	c.tracking = true
+	return c
+}
+
+// The count of accesses before each recreation of sampling tables
+// [1000]
+func (c *Configuration) CountPerSampling(count uint64) *Configuration {
+	if count > 0 {
+		c.countPerSampling = count
+	}
 	return c
 }
 
