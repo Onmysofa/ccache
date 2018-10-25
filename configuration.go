@@ -17,7 +17,7 @@ type Configuration struct {
 func Configure() *Configuration {
 	return &Configuration{
 		buckets:        16,
-		candidates:     3,
+		candidates:     10,
 		itemsToPrune:   500,
 		initBucketSize: 512,
 		maxSize:        5000,
@@ -45,7 +45,7 @@ func (c *Configuration) Buckets(count uint32) *Configuration {
 }
 
 // Number of eviction candidates
-// [3]
+// [10]
 func (c *Configuration) Candidates(count int) *Configuration {
 	if count >= 0 && count <= c.buckets {
 		c.candidates = count
