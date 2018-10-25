@@ -274,12 +274,19 @@ func (c *Cache) evict() {
 	if tables  == nil {
 		tables = unsafe.Pointer(c.buildSamplingTables())
 		atomic.CompareAndSwapPointer(&c.tables, nil, tables)
-	} else if atomic.LoadUint64(&c.counter) >= c.countPerSampling {
-		atomic.StoreUint64(&c.counter, 0)
+	} else if cnt := atomic.LoadUint64(&c.counter); cnt >= c.countPerSampling {
+		for !atomic.CompareAndSwapUint64(&c.counter, cnt, 0) {
+			cnt = atomic.LoadUint64(&c.counter)
+			if cnt < c.countPerSampling {
+				tables = atomic.LoadPointer(&c.tables)
+				goto skip
+			}
+		}
 		tables = unsafe.Pointer(c.buildSamplingTables())
 		atomic.StorePointer(&c.tables, tables)
 	}
 
+skip:
 	tableU := (*samplingTables)(tables).tableU
 	tableK := (*samplingTables)(tables).tableK
 
