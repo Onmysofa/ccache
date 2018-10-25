@@ -277,8 +277,8 @@ func (c *Cache) evict() {
 			x := rand.Float64()
 			n := c.Configuration.buckets
 
-			i := int(float64(n) * x) + 1
-			y := float64(n) * x + 1 - float64(i)
+			i := int(float64(n) * x)
+			y := float64(n) * x - float64(i)
 			if y < tableU[i] {
 				bucket = i
 			} else {
