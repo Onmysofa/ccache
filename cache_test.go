@@ -182,9 +182,3 @@ func checkSize(cache *Cache, sz int64) {
 	Expect(cache.size).To.Equal(sz)
 	cache.restart()
 }
-
-func gcCache(cache *Cache) {
-	cache.Stop()
-	cache.gc()
-	cache.restart()
-}

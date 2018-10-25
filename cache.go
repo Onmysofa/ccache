@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const EPSILON = 0.0000001
+
 type Cache struct {
 	*Configuration
 	size        int64
@@ -200,22 +202,68 @@ func (c *Cache) atInsert(item *Item) {
 	atomic.AddInt64(&c.size, item.size)
 }
 
+func (c *Cache) buildSamplingTables() (tableU []float64, tableK []int) {
+	n := c.Configuration.buckets
+	tableU = make([]float64, n, n)
+	tableK = make([]int, n, n)
+
+	for i := range tableK {
+		tableK[i] = -1
+	}
+
+	overfull := []int{}
+	underfull := []int{}
+
+	sum := 0
+	for i := range tableU {
+		num := c.buckets[i].getNum()
+		sum += num
+		tableU[i] = float64(n) * float64(num)
+	}
+
+	for i := range tableU {
+		tableU[i] /= float64(sum)
+
+		if tableU[i] - 1 > EPSILON {
+			overfull = append(overfull, i)
+		} else if tableU[i] < 1 - EPSILON && tableK[i] < 0 {
+			underfull = append(underfull, i)
+		} else {
+			tableK[i] = i
+		}
+	}
+
+	for len(overfull) > 0 {
+		i := overfull[len(overfull) - 1]
+		overfull = overfull[:len(overfull) - 1]
+		j := underfull[len(underfull) - 1]
+		underfull = underfull[:len(underfull) - 1]
+
+		tableK[j] = i
+		tableU[i] = tableU[i] + tableU[j] - 1
+
+		if tableU[i] - 1 > EPSILON {
+			overfull = append(overfull, i)
+		} else if tableU[i] < 1 - EPSILON && tableK[i] < 0 {
+			underfull = append(underfull, i)
+		} else {
+			tableK[i] = i
+		}
+	}
+
+	return tableU, tableK
+}
+
 func (c *Cache) evict() {
 	s := atomic.LoadInt64(&c.size)
 	if s <= c.maxSize {
 		return
 	}
 
-	preSums := make([]int, c.Configuration.buckets, c.Configuration.buckets)
-	sum := 0;
+	tableU, tableK := c.buildSamplingTables()
 
-	for k := 0; k < c.Configuration.buckets; k++ {
-		preSums[k] = sum + c.buckets[k].getNum()
-		sum = preSums[k]
-	}
-
-	i := 0
-	for s = atomic.LoadInt64(&c.size); s > c.maxSize || i < c.itemsToPrune; s = atomic.LoadInt64(&c.size) {
+	ii := 0
+	for s = atomic.LoadInt64(&c.size); s > c.maxSize || ii < c.itemsToPrune; s = atomic.LoadInt64(&c.size) {
 
 		var minBucket int
 		var minItem *Item
@@ -223,19 +271,20 @@ func (c *Cache) evict() {
 
 		for j := 0; j < c.candidates; j++ {
 
-			r := rand.Intn(preSums[c.Configuration.buckets - 1]) + 1
-			left := 0;
-			right := c.Configuration.buckets - 1;
-			for left < right {
-				mid := (right - left) / 2 + left;
-				if preSums[mid] >= r {
-					right = mid;
-				} else {
-					left = mid + 1;
-				}
+			bucket := -1
+
+			// Alias method
+			x := rand.Float64()
+			n := c.Configuration.buckets
+
+			i := int(float64(n) * x) + 1
+			y := float64(n) * x + 1 - float64(i)
+			if y < tableU[i] {
+				bucket = i
+			} else {
+				bucket = tableK[i]
 			}
 
-			bucket := left
 			curItem, curVal := c.buckets[bucket].getCandidate()
 
 			if curItem != nil {
@@ -260,6 +309,6 @@ func (c *Cache) evict() {
 			}
 		}
 
-		i++
+		ii++
 	}
 }
