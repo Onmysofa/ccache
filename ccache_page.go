@@ -5,7 +5,7 @@ import "time"
 type Request struct {
 	Backend uint64
 	Uri uint64
-	obj interface{}
+	Obj interface{}
 }
 
 // Get an item from the cache. Returns nil if the item wasn't found.
