@@ -22,7 +22,7 @@ func (c *Cache) GetPage(reqs []*Request) error {
 			continue
 		}
 
-		req.obj = item.value
+		req.Obj = item.value
 	}
 
 	return nil
@@ -32,7 +32,7 @@ func (c *Cache) GetPage(reqs []*Request) error {
 func (c *Cache) SetPage(reqs []*Request, duration time.Duration) {
 	for _, req := range reqs {
 		key := buildKey(req.Backend, req.Uri)
-		value := req.obj
+		value := req.Obj
 		c.Set(key, value, duration)
 	}
 }
