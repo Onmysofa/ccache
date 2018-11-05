@@ -18,6 +18,11 @@ type TrackedItem interface {
 	Extend(duration time.Duration)
 }
 
+type ReqInfo struct {
+	TimeEntered time.Time
+	ReqSize float64
+}
+
 type nilItem struct{}
 
 func (n *nilItem) Value() interface{} { return nil }
@@ -50,20 +55,35 @@ type Item struct {
 	expires    int64
 	size       int64
 	value      interface{}
+	reqInfo    ReqInfo
 }
 
-func newItem(key string, value interface{}, expires int64) *Item {
-	size := int64(1)
-	if sized, ok := value.(Sized); ok {
-		size = sized.Size()
-	}
+func newItem(key string, value interface{}, r *ReqInfo, expires int64) *Item {
+	size := getValueSize(value)
+
 	return &Item{
 		key:        key,
 		value:      value,
 		promotions: 0,
 		size:       size,
 		expires:    expires,
+		reqInfo:    *r,
 	}
+}
+
+func getValueSize(value interface{}) int64 {
+	size := int64(1)
+	if sized, ok := value.(Sized); ok {
+		size = sized.Size()
+	}
+	return size
+}
+
+func getDefaultReqInfo(value interface{}) *ReqInfo {
+
+	r := &ReqInfo{time.Now(), float64(getValueSize(value))}
+
+	return r
 }
 
 func (i *Item) shouldPromote(getsPerPromote int32) bool {
@@ -100,4 +120,8 @@ func (i *Item) Expires() time.Time {
 
 func (i *Item) Extend(duration time.Duration) {
 	atomic.StoreInt64(&i.expires, time.Now().Add(duration).UnixNano())
+}
+
+func (i *Item) MixReqInfo(old *ReqInfo, updateRatio float64) {
+	i.reqInfo.ReqSize = i.reqInfo.ReqSize * updateRatio + old.ReqSize * (1-updateRatio)
 }

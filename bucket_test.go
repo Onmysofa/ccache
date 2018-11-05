@@ -32,7 +32,8 @@ func (_ *BucketTests) DeleteItemFromBucket() {
 
 func (_ *BucketTests) SetsANewBucketItem() {
 	bucket := testBucket()
-	item, existing := bucket.set("spice", TestValue("flow"), time.Minute)
+	val := TestValue("flow")
+	item, existing := bucket.set("spice", val, getDefaultReqInfo(val), time.Minute)
 	assertValue(item, "flow")
 	item = bucket.get("spice")
 	assertValue(item, "flow")
@@ -41,11 +42,13 @@ func (_ *BucketTests) SetsANewBucketItem() {
 
 func (_ *BucketTests) SetsAnExistingItem() {
 	bucket := testBucket()
-	item, existing := bucket.set("power", TestValue("9001"), time.Minute)
+	val := TestValue("9001")
+	item, existing := bucket.set("power", val, getDefaultReqInfo(val), time.Minute)
 	assertValue(existing, "9000")
 	item = bucket.get("power")
 	assertValue(item, "9001")
-	item, existing = bucket.set("power", TestValue("9002"), time.Minute)
+	val = TestValue("9002")
+	item, existing = bucket.set("power", val, getDefaultReqInfo(val), time.Minute)
 	assertValue(existing, "9001")
 }
 

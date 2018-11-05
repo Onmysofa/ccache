@@ -11,17 +11,19 @@ type bucket struct {
 	lookup map[string]int
 	arr []*Item
 	init int
+	updateRatio float64
 }
 
 func NewArr(initSize int) []*Item {
 	return make([]*Item, 0, initSize)
 }
 
-func NewBucket(initSize int) *bucket {
+func NewBucket(initSize int, ur float64) *bucket {
 	return &bucket{
 		lookup: make(map[string]int),
 		arr: NewArr(initSize),
 		init: initSize,
+		updateRatio: ur,
 	}
 }
 
@@ -38,9 +40,9 @@ func (b *bucket) get(key string) *Item {
 	return nil
 }
 
-func (b *bucket) set(key string, value interface{}, duration time.Duration) (*Item, *Item) {
+func (b *bucket) set(key string, value interface{}, r *ReqInfo, duration time.Duration) (*Item, *Item) {
 	expires := time.Now().Add(duration).UnixNano()
-	item := newItem(key, value, expires)
+	item := newItem(key, value, r, expires)
 	b.Lock()
 	defer b.Unlock()
 
@@ -49,6 +51,7 @@ func (b *bucket) set(key string, value interface{}, duration time.Duration) (*It
 		existing := b.arr[existingId]
 		b.arr[existingId] = item
 		item.idx = existingId
+		item.MixReqInfo(&existing.reqInfo, b.updateRatio)
 		return item, existing
 	} else {
 		b.arr = append(b.arr, item)

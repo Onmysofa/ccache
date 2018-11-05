@@ -9,6 +9,7 @@ type Configuration struct {
 	tracking       bool
 	countPerSampling uint64
 	onDelete       func(item *Item)
+	updateRatio    float64
 }
 
 // Creates a configuration object with sensible defaults
@@ -23,6 +24,7 @@ func Configure() *Configuration {
 		maxSize:        5000,
 		countPerSampling: 1000,
 		tracking:       false,
+		updateRatio:    0.3,
 	}
 }
 

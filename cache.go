@@ -38,7 +38,7 @@ func New(config *Configuration) *Cache {
 		buckets:       make([]*bucket, config.buckets),
 	}
 	for i := 0; i < int(config.buckets); i++ {
-		c.buckets[i] = NewBucket(config.initBucketSize)
+		c.buckets[i] = NewBucket(config.initBucketSize, c.updateRatio)
 	}
 	c.restart()
 	return c
@@ -71,13 +71,14 @@ func (c *Cache) TrackingGet(key string) TrackedItem {
 // Set the value in the cache for the specified duration
 func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
 	atomic.AddUint64(&c.counter, 1)
-	c.set(key, value, duration)
+
+	c.set(key, value, getDefaultReqInfo(value), duration)
 }
 
 // Replace the value if it exists, does not set if it doesn't.
 // Returns true if the item existed an was replaced, false otherwise.
 // Replace does not reset item's TTL
-func (c *Cache) Replace(key string, value interface{}) bool {
+func (c *Cache) Replace(key string,  value interface{}) bool {
 	item := c.bucket(key).get(key)
 	if item == nil {
 		return false
@@ -98,7 +99,7 @@ func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interfac
 	if err != nil {
 		return nil, err
 	}
-	return c.set(key, value, duration), nil
+	return c.set(key, value, getDefaultReqInfo(value), duration), nil
 }
 
 // Remove the item from the cache, return true if the item was present, false otherwise.
@@ -144,8 +145,8 @@ func (c *Cache) deleteItem(bucket *bucket, item *Item) bool {
 	return ok
 }
 
-func (c *Cache) set(key string, value interface{}, duration time.Duration) *Item {
-	item, existing := c.bucket(key).set(key, value, duration)
+func (c *Cache) set(key string, value interface{}, r *ReqInfo, duration time.Duration) *Item {
+	item, existing := c.bucket(key).set(key, value, r, duration)
 	if existing != nil {
 		//c.deletables <- existing
 		c.afterDelete(existing)
