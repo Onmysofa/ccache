@@ -1,6 +1,9 @@
 package ccache
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type RecursionTimer struct {
 	Title string
@@ -38,3 +41,9 @@ func (t *RecursionTimer) Leave() {
 	t.StartTimes = t.StartTimes[:len(t.StartTimes) - 1]
 }
 
+func (t *RecursionTimer) Report() {
+	fmt.Println("Title: ", t.Title)
+	for k, v := range t.Durations {
+		fmt.Println("", k + ":", v)
+	}
+}
