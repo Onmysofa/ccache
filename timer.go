@@ -3,9 +3,19 @@ package ccache
 import "time"
 
 type RecursionTimer struct {
+	Title string
 	Durations map[string]time.Duration
 	Recursion []string
 	StartTimes []time.Time
+}
+
+func NewRecursionTimer(title string) *RecursionTimer {
+	return &RecursionTimer{
+		title,
+	make(map[string]time.Duration),
+		make([]string, 0),
+		make([]time.Time, 0),
+		}
 }
 
 func (t *RecursionTimer) Enter(fun string) {

@@ -48,7 +48,10 @@ func New(config *Configuration) *Cache {
 // This can return an expired item. Use item.Expired() to see if the item
 // is expired and item.TTL() to see how long until the item expires (which
 // will be negative for an already expired item).
-func (c *Cache) Get(key string) *Item {
+func (c *Cache) Get(key string, t *RecursionTimer) *Item {
+	t.Enter("Get")
+	defer t.Leave()
+
 	item := c.bucket(key).get(key)
 	if item == nil {
 		return nil
@@ -59,8 +62,8 @@ func (c *Cache) Get(key string) *Item {
 
 // Used when the cache was created with the Track() configuration option.
 // Avoid otherwise
-func (c *Cache) TrackingGet(key string) TrackedItem {
-	item := c.Get(key)
+func (c *Cache) TrackingGet(key string, t *RecursionTimer) TrackedItem {
+	item := c.Get(key, t)
 	if item == nil {
 		return NilTracked
 	}
@@ -90,8 +93,8 @@ func (c *Cache) Replace(key string,  value interface{}) bool {
 // Attempts to get the value from the cache and calles fetch on a miss (missing
 // or stale item). If fetch returns an error, no value is cached and the error
 // is returned back to the caller.
-func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interface{}, error)) (*Item, error) {
-	item := c.Get(key)
+func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interface{}, error), t *RecursionTimer) (*Item, error) {
+	item := c.Get(key, t)
 	if item != nil && !item.Expired() {
 		return item, nil
 	}
