@@ -35,7 +35,7 @@ func (t *RecursionTimer) Leave() {
 		cur = 0
 	}
 
-	cur += time.Now().Sub(t.StartTimes[len(t.StartTimes)])
+	cur += time.Now().Sub(t.StartTimes[len(t.StartTimes) - 1])
 
 	t.Durations[f] = cur
 	t.StartTimes = t.StartTimes[:len(t.StartTimes) - 1]
