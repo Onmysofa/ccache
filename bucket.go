@@ -27,7 +27,10 @@ func NewBucket(initSize int, ur float64) *bucket {
 	}
 }
 
-func (b *bucket) get(key string) *Item {
+func (b *bucket) get(key string, t *RecursionTimer) *Item {
+	t.Enter("bucket:get")
+	defer t.Leave()
+
 	b.RLock()
 	defer b.RUnlock()
 	itemId, ok := b.lookup[key]
@@ -40,7 +43,10 @@ func (b *bucket) get(key string) *Item {
 	return nil
 }
 
-func (b *bucket) set(key string, value interface{}, r *ReqInfo, duration time.Duration) (*Item, *Item) {
+func (b *bucket) set(key string, value interface{}, r *ReqInfo, duration time.Duration, t *RecursionTimer) (*Item, *Item) {
+	t.Enter("bucket:set")
+	defer t.Leave()
+
 	expires := time.Now().Add(duration).UnixNano()
 	item := newItem(key, value, r, expires)
 	b.Lock()
@@ -61,7 +67,10 @@ func (b *bucket) set(key string, value interface{}, r *ReqInfo, duration time.Du
 	}
 }
 
-func (b *bucket) delete(key string) (*Item, bool) {
+func (b *bucket) delete(key string, t *RecursionTimer) (*Item, bool) {
+	t.Enter("bucket:delete")
+	defer t.Leave()
+
 	b.Lock()
 	defer b.Unlock()
 	return b.deleteInner(key)
@@ -94,7 +103,10 @@ func (b *bucket) getNum() int {
 	return len(b.arr)
 }
 
-func (b *bucket) getCandidate() (*Item, int32) {
+func (b *bucket) getCandidate(t *RecursionTimer) (*Item, int32) {
+	t.Enter("bucket:getCandidate")
+	defer t.Leave()
+
 	b.RLock()
 	defer b.RUnlock()
 

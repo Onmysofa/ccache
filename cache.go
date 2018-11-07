@@ -49,10 +49,10 @@ func New(config *Configuration) *Cache {
 // is expired and item.TTL() to see how long until the item expires (which
 // will be negative for an already expired item).
 func (c *Cache) Get(key string, t *RecursionTimer) *Item {
-	t.Enter("Get")
+	t.Enter("Cache:Get")
 	defer t.Leave()
 
-	item := c.bucket(key).get(key)
+	item := c.bucket(key).get(key, t)
 	if item == nil {
 		return nil
 	}
@@ -72,21 +72,21 @@ func (c *Cache) TrackingGet(key string, t *RecursionTimer) TrackedItem {
 }
 
 // Set the value in the cache for the specified duration
-func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
+func (c *Cache) Set(key string, value interface{}, duration time.Duration, t *RecursionTimer) {
 	atomic.AddUint64(&c.counter, 1)
 
-	c.set(key, value, getDefaultReqInfo(value), duration)
+	c.set(key, value, getDefaultReqInfo(value), duration, t)
 }
 
 // Replace the value if it exists, does not set if it doesn't.
 // Returns true if the item existed an was replaced, false otherwise.
 // Replace does not reset item's TTL
-func (c *Cache) Replace(key string,  value interface{}) bool {
-	item := c.bucket(key).get(key)
+func (c *Cache) Replace(key string,  value interface{}, t *RecursionTimer) bool {
+	item := c.bucket(key).get(key, t)
 	if item == nil {
 		return false
 	}
-	c.Set(key, value, item.TTL())
+	c.Set(key, value, item.TTL(), t)
 	return true
 }
 
@@ -102,13 +102,13 @@ func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interfac
 	if err != nil {
 		return nil, err
 	}
-	return c.set(key, value, getDefaultReqInfo(value), duration), nil
+	return c.set(key, value, getDefaultReqInfo(value), duration, t), nil
 }
 
 // Remove the item from the cache, return true if the item was present, false otherwise.
-func (c *Cache) Delete(key string) bool {
+func (c *Cache) Delete(key string, t *RecursionTimer) bool {
 	atomic.AddUint64(&c.counter, 1)
-	item, _ := c.bucket(key).delete(key)
+	item, _ := c.bucket(key).delete(key, t)
 	if item != nil {
 		//c.deletables <- item
 		c.afterDelete(item)
@@ -139,8 +139,8 @@ func (c *Cache) restart() {
 	//go c.worker()
 }
 
-func (c *Cache) deleteItem(bucket *bucket, item *Item) bool {
-	_, ok := bucket.delete(item.key) //stop other GETs from getting it
+func (c *Cache) deleteItem(bucket *bucket, item *Item, t *RecursionTimer) bool {
+	_, ok := bucket.delete(item.key, t) //stop other GETs from getting it
 	if ok {
 		//c.deletables <- item
 		c.afterDelete(item)
@@ -148,13 +148,13 @@ func (c *Cache) deleteItem(bucket *bucket, item *Item) bool {
 	return ok
 }
 
-func (c *Cache) set(key string, value interface{}, r *ReqInfo, duration time.Duration) *Item {
-	item, existing := c.bucket(key).set(key, value, r, duration)
+func (c *Cache) set(key string, value interface{}, r *ReqInfo, duration time.Duration, t *RecursionTimer) *Item {
+	item, existing := c.bucket(key).set(key, value, r, duration, t)
 	if existing != nil {
 		//c.deletables <- existing
 		c.afterDelete(existing)
 	}
-	c.introduce(item)
+	c.introduce(item, t)
 	return item
 }
 
@@ -164,11 +164,11 @@ func (c *Cache) bucket(key string) *bucket {
 	return c.buckets[h.Sum32()&c.bucketMask]
 }
 
-func (c *Cache) introduce(item *Item) {
+func (c *Cache) introduce(item *Item, t *RecursionTimer) {
 	//c.promotables <- item
 
 	c.atInsert(item)
-	c.evict()
+	c.evict(t)
 }
 
 //func (c *Cache) worker() {
@@ -216,7 +216,11 @@ func (c *Cache) atInsert(item *Item) {
 	atomic.AddInt64(&c.size, item.size)
 }
 
-func (c *Cache) buildSamplingTables() *samplingTables {
+func (c *Cache) buildSamplingTables(t *RecursionTimer) *samplingTables {
+
+	t.Enter("Cache:buildSamplingTable")
+	defer t.Leave()
+
 	n := c.Configuration.buckets
 	tableU := make([]float64, n, n)
 	tableK := make([]int, n, n)
@@ -268,7 +272,10 @@ func (c *Cache) buildSamplingTables() *samplingTables {
 	return &samplingTables{tableU, tableK}
 }
 
-func (c *Cache) evict() {
+func (c *Cache) evict(t *RecursionTimer) {
+	t.Enter("Cache:evict")
+	defer t.Leave()
+
 	s := atomic.LoadInt64(&c.size)
 	if s <= c.maxSize {
 		return
@@ -276,7 +283,7 @@ func (c *Cache) evict() {
 
 	tables := atomic.LoadPointer(&c.tables)
 	if tables  == nil {
-		tables = unsafe.Pointer(c.buildSamplingTables())
+		tables = unsafe.Pointer(c.buildSamplingTables(t))
 		atomic.CompareAndSwapPointer(&c.tables, nil, tables)
 	} else if cnt := atomic.LoadUint64(&c.counter); cnt >= c.countPerSampling {
 		for !atomic.CompareAndSwapUint64(&c.counter, cnt, 0) {
@@ -286,7 +293,7 @@ func (c *Cache) evict() {
 				goto skip
 			}
 		}
-		tables = unsafe.Pointer(c.buildSamplingTables())
+		tables = unsafe.Pointer(c.buildSamplingTables(t))
 		atomic.StorePointer(&c.tables, tables)
 	}
 
@@ -317,7 +324,7 @@ skip:
 				bucket = tableK[i]
 			}
 
-			curItem, curVal := c.buckets[bucket].getCandidate()
+			curItem, curVal := c.buckets[bucket].getCandidate(t)
 
 			if curItem != nil {
 				if minItem == nil {
@@ -336,7 +343,7 @@ skip:
 		}
 
 		if minItem != nil {
-			if _, ok := c.buckets[minBucket].delete(minItem.key); ok {
+			if _, ok := c.buckets[minBucket].delete(minItem.key, t); ok {
 				c.afterDelete(minItem)
 			}
 		}

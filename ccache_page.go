@@ -17,7 +17,7 @@ type Request struct {
 // will be negative for an already expired item).
 func (c *Cache) GetPage(reqs []*Request, t *RecursionTimer) error {
 
-	t.Enter("GetPage")
+	t.Enter("Cache:GetPage")
 	defer t.Leave()
 
 	for _, req := range reqs {
@@ -36,7 +36,7 @@ func (c *Cache) GetPage(reqs []*Request, t *RecursionTimer) error {
 
 // Set the value in the cache for the specified duration
 func (c *Cache) SetPage(reqs []*Request, duration time.Duration, t *RecursionTimer) {
-	t.Enter("SetPage")
+	t.Enter("Cache:SetPage")
 	t.Leave()
 
 	size := int64(0)
@@ -56,21 +56,21 @@ func (c *Cache) SetPage(reqs []*Request, duration time.Duration, t *RecursionTim
 
 // Set the value in the cache for the specified duration
 func (c *Cache) SetWithInfo(key string, value interface{}, r *ReqInfo, duration time.Duration, t *RecursionTimer) {
-	t.Enter("SetWithInfo")
+	t.Enter("Cache:SetWithInfo")
 	defer t.Leave()
 
 	atomic.AddUint64(&c.counter, 1)
-	c.set(key, value, r, duration)
+	c.set(key, value, r, duration, t)
 }
 
 // Replace the value if it exists, does not set if it doesn't.
 // Returns true if the item existed an was replaced, false otherwise.
 // Replace does not reset item's TTL
 func (c *Cache) ReplaceWithInfo(key string, r *ReqInfo, value interface{}, t *RecursionTimer) bool {
-	t.Enter("ReplaceWithInfo")
+	t.Enter("Cache:ReplaceWithInfo")
 	defer t.Leave()
 
-	item := c.bucket(key).get(key)
+	item := c.bucket(key).get(key, t)
 	if item == nil {
 		return false
 	}
