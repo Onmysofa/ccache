@@ -107,7 +107,9 @@ func (b *bucket) getCandidate(t *RecursionTimer) (*Item, int32) {
 	t.Enter("bucket:getCandidate")
 	defer t.Leave()
 
+	t.Enter("bucket:getCandidate:acquireLock")
 	b.RLock()
+	t.Leave()
 	defer b.RUnlock()
 
 	l := len(b.arr)
