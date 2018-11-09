@@ -56,6 +56,8 @@ type Item struct {
 	size       int64
 	value      interface{}
 	reqInfo    ReqInfo
+	createTS   time.Time
+	accessTs   time.Time
 }
 
 func newItem(key string, value interface{}, r *ReqInfo, expires int64) *Item {
@@ -68,6 +70,8 @@ func newItem(key string, value interface{}, r *ReqInfo, expires int64) *Item {
 		size:       size,
 		expires:    expires,
 		reqInfo:    *r,
+		createTS:   time.Now(),
+		accessTs:   time.Now(),
 	}
 }
 

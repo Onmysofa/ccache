@@ -34,6 +34,7 @@ func (b *bucket) get(key string) *Item {
 	if ok {
 		item := b.arr[itemId]
 		item.accCount++
+		item.accessTs = time.Now()
 		return item
 	}
 
