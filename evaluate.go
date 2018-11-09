@@ -1,5 +1,5 @@
 package ccache
 
-func eval (i *Item) int32 {
+func evalLFU(i *Item) int32 {
 	return i.accCount
 }

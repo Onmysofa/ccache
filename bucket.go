@@ -95,7 +95,7 @@ func (b *bucket) getNum() int {
 	return len(b.arr)
 }
 
-func (b *bucket) getCandidate() (*Item, int32) {
+func (b *bucket) getCandidate(e func(i *Item)int32) (*Item, int32) {
 	b.RLock()
 	defer b.RUnlock()
 
@@ -105,7 +105,7 @@ func (b *bucket) getCandidate() (*Item, int32) {
 	}
 	itemId := rand.Intn(l)
 	item := b.arr[itemId]
-	return item, eval(item)
+	return item, e(item)
 }
 
 func (b *bucket) clear() {

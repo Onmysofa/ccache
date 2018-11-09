@@ -21,6 +21,7 @@ type Cache struct {
 	deletables  chan *Item
 	promotables chan *Item
 	tables unsafe.Pointer
+	eval        func(i *Item)int32
 }
 
 type samplingTables struct {
@@ -36,6 +37,7 @@ func New(config *Configuration) *Cache {
 		counter: 0,
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*bucket, config.buckets),
+		eval : evalLFU,
 	}
 	for i := 0; i < int(config.buckets); i++ {
 		c.buckets[i] = NewBucket(config.initBucketSize, c.updateRatio)
@@ -314,7 +316,7 @@ skip:
 				bucket = tableK[i]
 			}
 
-			curItem, curVal := c.buckets[bucket].getCandidate()
+			curItem, curVal := c.buckets[bucket].getCandidate(c.eval)
 
 			if curItem != nil {
 				if minItem == nil {

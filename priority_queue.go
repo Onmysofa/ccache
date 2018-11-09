@@ -10,6 +10,11 @@ func NewPQ() *PriorityQueue {
 	return &pq
 }
 
+func eval(i *Item) int32 {
+	return evalLFU(i)
+}
+
+
 func (pq PriorityQueue) Len() int { return len(pq) }
 
 func (pq PriorityQueue) Less(i, j int) bool {
