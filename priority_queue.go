@@ -11,7 +11,7 @@ func NewPQ() *PriorityQueue {
 }
 
 func eval(i *Item) int32 {
-	return evalLFU(i)
+	return int32(evalLFU(i))
 }
 
 

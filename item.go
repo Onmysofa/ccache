@@ -51,7 +51,7 @@ type Item struct {
 	group      string
 	promotions int32
 	refCount   int32
-	accCount   int32
+	accCount   int64
 	expires    int64
 	size       int64
 	value      interface{}
