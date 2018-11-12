@@ -95,7 +95,7 @@ func (b *bucket) getNum() int {
 	return len(b.arr)
 }
 
-func (b *bucket) getCandidate(e func(i *Item)int64) (*Item, int64) {
+func (b *bucket) getCandidate(e func(i *Item)float64) (*Item, float64) {
 	b.RLock()
 	defer b.RUnlock()
 

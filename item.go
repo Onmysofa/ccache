@@ -21,6 +21,7 @@ type TrackedItem interface {
 type ReqInfo struct {
 	TimeEntered time.Time
 	ReqSize float64
+	MissingSize float64
 }
 
 type nilItem struct{}
@@ -85,7 +86,8 @@ func getValueSize(value interface{}) int64 {
 
 func getDefaultReqInfo(value interface{}) *ReqInfo {
 
-	r := &ReqInfo{time.Now(), float64(getValueSize(value))}
+	s := float64(getValueSize(value))
+	r := &ReqInfo{time.Now(), s, s}
 
 	return r
 }
@@ -128,4 +130,5 @@ func (i *Item) Extend(duration time.Duration) {
 
 func (i *Item) MixReqInfo(old *ReqInfo, updateRatio float64) {
 	i.reqInfo.ReqSize = i.reqInfo.ReqSize * updateRatio + old.ReqSize * (1-updateRatio)
+	i.reqInfo.MissingSize = i.reqInfo.MissingSize * updateRatio + old.MissingSize * (1-updateRatio)
 }

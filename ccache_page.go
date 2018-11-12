@@ -40,7 +40,25 @@ func (c *Cache) SetPage(reqs []*Request, duration time.Duration) {
 		size += getValueSize(req.Obj)
 	}
 
-	info := &ReqInfo{time.Now(), float64(size)}
+	info := &ReqInfo{time.Now(), float64(size), float64(size)}
+
+	for _, req := range reqs {
+		key := buildKey(req.Backend, req.Uri)
+		value := req.Obj
+		c.SetWithInfo(key, value, info, duration)
+	}
+}
+
+// Set the value in the cache for the specified duration
+func (c *Cache) SetPageWithMissingSize(reqs []*Request, missingSize float64, duration time.Duration) {
+
+	size := int64(0)
+
+	for _, req := range reqs {
+		size += getValueSize(req.Obj)
+	}
+
+	info := &ReqInfo{time.Now(), float64(size), missingSize}
 
 	for _, req := range reqs {
 		key := buildKey(req.Backend, req.Uri)

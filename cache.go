@@ -21,7 +21,7 @@ type Cache struct {
 	deletables  chan *Item
 	promotables chan *Item
 	tables unsafe.Pointer
-	eval        func(i *Item)int64
+	eval        func(i *Item)float64
 }
 
 type samplingTables struct {
@@ -298,7 +298,7 @@ skip:
 
 		var minBucket int
 		var minItem *Item
-		var minVal int64
+		var minVal float64
 
 		for j := 0; j < c.candidates; j++ {
 
