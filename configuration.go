@@ -1,5 +1,7 @@
 package ccache
 
+import "strings"
+
 type Configuration struct {
 	maxSize        int64
 	buckets        int
@@ -10,6 +12,7 @@ type Configuration struct {
 	countPerSampling uint64
 	onDelete       func(item *Item)
 	updateRatio    float64
+	evalAlgorithm  func(item *Item)float64
 }
 
 // Creates a configuration object with sensible defaults
@@ -25,6 +28,7 @@ func Configure() *Configuration {
 		countPerSampling: 1000,
 		tracking:       false,
 		updateRatio:    0.3,
+		evalAlgorithm:  evalLFU,
 	}
 }
 
@@ -67,6 +71,26 @@ func (c *Configuration) ItemsToPrune(count uint32) *Configuration {
 func (c *Configuration) InitBucketSize(size uint32) *Configuration {
 	if size > 0 {
 		c.initBucketSize = int(size)
+	}
+	return c
+}
+
+// The evaluation algorithm
+// [LFU]
+func (c *Configuration) EvalAlgorithm(name string) *Configuration {
+	name = strings.ToLower(name)
+	if strings.Compare(name, "lfu") == 0 {
+		c.evalAlgorithm = evalLFU
+	} else if strings.Compare(name, "lru") == 0 {
+		c.evalAlgorithm = evalLRU
+	} else if strings.Compare(name, "hyperbolic") == 0 {
+		c.evalAlgorithm = evalHyperbolic
+	} else if strings.Compare(name, "h1") == 0 {
+		c.evalAlgorithm = evalOursH1
+	} else if strings.Compare(name, "h2") == 0 {
+		c.evalAlgorithm = evalOursH2
+	} else {
+		panic("Unrecognized evaluation algorithm.")
 	}
 	return c
 }

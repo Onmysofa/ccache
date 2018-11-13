@@ -37,7 +37,7 @@ func New(config *Configuration) *Cache {
 		counter: 0,
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*bucket, config.buckets),
-		eval : evalLFU,
+		eval: config.evalAlgorithm,
 	}
 	for i := 0; i < int(config.buckets); i++ {
 		c.buckets[i] = NewBucket(config.initBucketSize, c.updateRatio)
