@@ -22,5 +22,5 @@ func evalOursH1(i *Item) float64 {
 
 func evalOursH2(i *Item) float64 {
 	t := time.Now().Sub(i.createTS)
-	return float64(i.accCount) / float64(t) / i.reqInfo.ReqSize
+	return float64(i.accCount) / float64(t) / i.reqInfo.MissingSize
 }
