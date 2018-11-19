@@ -13,6 +13,8 @@ type Configuration struct {
 	onDelete       func(item *Item)
 	updateRatio    float64
 	evalAlgorithm  func(item *Item)float64
+	admissionPolicy bool
+	admissionThres int64
 }
 
 // Creates a configuration object with sensible defaults
@@ -29,6 +31,8 @@ func Configure() *Configuration {
 		tracking:       false,
 		updateRatio:    0.3,
 		evalAlgorithm:  evalLFU,
+		admissionPolicy: false,
+		admissionThres: 10240,
 	}
 }
 
@@ -91,6 +95,22 @@ func (c *Configuration) EvalAlgorithm(name string) *Configuration {
 		c.evalAlgorithm = evalOursH2
 	} else {
 		panic("Unrecognized evaluation algorithm.")
+	}
+	return c
+}
+
+// Enable admission policy
+// [false]
+func (c *Configuration) AdmissionPolicy(a bool) *Configuration {
+	c.admissionPolicy = a
+	return c
+}
+
+// Threshold for the admission policy
+// [false]
+func (c *Configuration) AdmissionThres(s int64) *Configuration {
+	if s >= 0 {
+		c.admissionThres = s
 	}
 	return c
 }

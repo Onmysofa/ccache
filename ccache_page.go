@@ -52,6 +52,12 @@ func (c *Cache) SetPage(reqs []*Request, duration time.Duration) {
 // Set the value in the cache for the specified duration
 func (c *Cache) SetPageWithMissingSize(reqs []*Request, missingSize float64, duration time.Duration) {
 
+	if c.admissionPolicy {
+		if float64(atomic.LoadInt64(&c.size)) + missingSize > float64(c.maxSize) && missingSize > float64(c.admissionThres) {
+			return
+		}
+	}
+
 	size := int64(0)
 
 	for _, req := range reqs {
